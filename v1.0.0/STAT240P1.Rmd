@@ -1,0 +1,83 @@
+---
+title: "STAT240 Part 1"
+output: html_document
+date: "2025-12-8"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+student_data = read_csv2("data/student-mat.csv")
+student_summary = student_data %>% select(absences, G3) %>% rename(final_grade = G3)
+
+student_summary <- student_summary %>% filter(absences < 30)
+
+head(student_summary, n = Inf)
+  
+correlation <- cor(student_summary$absences, student_summary$final_grade)
+print(paste("Correlation:", correlation))
+```
+
+```{r}
+ggplot(student_summary, aes(x = absences, y = final_grade)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Relationship Between Absences and Final Grade (G3)",
+    x = "Number of Absences",
+    y = "Final Grade (G3)"
+  )
+```
+```{r}
+model <- lm(final_grade ~ absences, data = student_summary)
+```
+
+```{r}
+student_resids <- student_summary %>% 
+  mutate(residuals = resid(model),
+         fitted = fitted(model))
+
+```
+
+
+```{r}
+# Linearity
+ggplot(student_resids, aes(x = absences, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residual Plot: Checking Linearity",
+       x = "Number of Absences",
+       y = "Residuals")
+```
+```{r}
+#Normality
+ggplot(student_resids, aes(x = residuals)) +
+  geom_histogram(bins = 15, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Residuals",
+       x = "Residuals",
+       y = "Count")
+
+```
+```{r}
+summary(model)
+```
+$H_0$: There are no relationship between absences and final grades of high school students ($\beta_1 = 0$)  
+$H_a$: There is a relationship between absences and final grades of high school students ($\beta_1$ $\ne0$)  
+
+
+  Let $y_i$ be the final grade of student i, and let $x_i$ be the number of absences of student $i$  
+  Then the  linear regression model is:  
+  $y_i$ = $\beta_0$ + $\beta_1$$x_i$ + $\varepsilon_i$  
+  where:  
+  - $y_i$ is the final grade for student i (On a 0-20 grade scale)  
+  - $x_i$ is the number of absences for student i  
+  - $\beta_0$ represents the expected final grade for a student with zero absences  
+  - $\beta_1$ represents the change in expected final grade for each additional   
+  - $\varepsilon_i$ are independent error terms  
