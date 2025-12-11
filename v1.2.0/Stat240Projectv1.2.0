@@ -1,0 +1,162 @@
+---
+title: "STAT240 Project (Group 2)"
+output: html_document
+date: "2025-12-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+library(tidyverse)
+```
+
+## Introduction 
+Student attendance is often thought to play an important role in student success. It is commonly believed that high attendance rates play into greater academic success. In this study, we analyze these two variables to observe a potential relationship. Using questionnaire data from two high schools, we focus on student attendance and final grade scores. This analysis examines whether there is a direct relationship between attendance and scores. Using data from real high school students, our main findings is that absenteeism is not a statistically significant predictor of lower grades and the relationship between the two is overall insignificant. 
+
+## Background
+To investigate our question, we used data from the $\underline{\text{Student Performance Dataset (student-math.csv)}}$, containing the information on 395 high school students from two secondary schools in Portugal. The data was gathered through questionnaires during the 2005-2006 school year by Paul Cortex, and later donated to the UC Irvine Machine Learning Repository, where we accessed it. 
+https://archive.ics.uci.edu/dataset/320/student+performance
+
+The full data set includes 33 variables/columns describing academics, attendance, demographics, social/family background, lifestyle habits, and health/behavior. For this project, we are only using the data from the final scores in math. For the attendance data, we removed data from students with over 30 absences as 99% of students had absences within 0-30 days. Extreme values outside this range could distort the regression line and do not accurately represent average student behavior. 
+
+Each row of data represents one student. Our study focuses on the two variables attendance (absences) and final grades (G3). ‘absences’ represent the number of missed classes a student reports, from 0 to 93 absences. ‘G3’,  the final grades are reported on a 0-20 scale. 
+
+Before formally creating the regression model, we explored the data to find that there was a significant spread of grades throughout the absence levels. These separate visualizations suggest that attendance alone is not enough to determine final grade performance. 
+
+
+## Analysis
+To formally evaluate the relationship, the inference method we used was a simple linear regression model, because both variables are quantitative (numerical) variables.
+
+Before interpreting the regression results, we checked the assumptions for a linear regression model including linearity, independence, constant variance, and normality. The relationship between variables appears to be linear and the variables are independent. The residual plot seen below shows non-constant variance and the residuals are not normally distributed. The regression can still be made, but the shortcomings suggest less reliable results. 
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+student_data = read_csv2("data/student-mat.csv")
+student_summary = student_data %>% select(absences, G3) %>% rename(final_grade = G3)
+
+# "Cleans the data"
+student_summary <- student_summary %>% filter(absences < 30)
+
+# head(student_summary, n = Inf)
+  
+correlation <- cor(student_summary$absences, student_summary$final_grade)
+# print(paste("Correlation:", correlation))
+```
+
+### Initial Impressions
+The scatterplot below represents student absences versus students' final grade. The fitted regression line is tilted very slightly upward suggesting that students with higher absences may appear to have higher final scores. However, because the data points are widely spread, there is not a clear pattern. Students with few or no absences earn both very high and very low final grades. This variability suggests that absences alone may not be a strong predictor of final grades. 
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+ggplot(student_summary, aes(x = absences, y = final_grade)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Relationship Between Absences and Final Grade (G3)",
+    x = "Number of Absences",
+    y = "Final Grade (G3)"
+  )
+```
+
+### Helpful visualizations 
+The histogram of residuals, seen below, shows how far off the linear regression model’s predictions were. 
+
+```{r echo = FALSE}
+model <- lm(final_grade ~ absences, data = student_summary)
+```
+
+```{r echo = FALSE}
+student_resids <- student_summary %>% 
+  mutate(residuals = resid(model),
+         fitted = fitted(model))
+
+```
+
+```{r echo = FALSE}
+#Normality
+ggplot(student_resids, aes(x = residuals)) +
+  geom_histogram(bins = 15, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Residuals",
+       x = "Residuals",
+       y = "Count")
+
+```
+
+
+The residuals are centered around 0, meaning that the model does not over or under predict on average. The distribution is uneven meaning   that our model could be off as much as 10 grade points, which is very significant considering the entire grade scale is 0-20. The distribution is also not clearly bell shaped and includes extreme values. This further suggests that absences alone are not a reliable predictor. 
+  
+```{r echo = FALSE}
+
+student_summary$absence_group <- cut(student_summary$absences,
+  breaks = c(0, 10, 20, 30),
+  labels = c("0–10 absences", "11–20 absences", "21–30 absences"),
+  right = FALSE)
+
+boxplot(final_grade ~ absence_group, data = student_summary,
+        main = "Final Grades by Absence Group",
+        xlab = "Absence Group",
+        ylab = "Final Grade", 
+        col = c("lightblue", "lightgreen", "lightpink"))
+
+```
+$\\$The boxplot above is included as an additional source of explanation to see how final grades vary across different levels of attendance. These groups show minimal differences in average final grades, as the mean final grades for each group hover around 10. This provides additional evidence that attendance alone does not explain variation in grades  
+
+```{r echo = FALSE}
+# Linearity/Constant Variance
+ggplot(student_resids, aes(x = absences, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residual Plot: Checking Linearity",
+       x = "Number of Absences",
+       y = "Residuals")
+``` 
+
+The residual plot, checking whether the linear model is appropriate, shows an uneven spread across the number of absences, meaning it does not show constant variance. In the context of our data, the lack of constant variance suggests that the accuracy of the model depends on how many absences the student has. In other words, the model is less accurate for students with higher absences as the residuals are spread out more and the model's errors get bigger. 
+
+### Statistical Model  
+Let $y_i$ be the final grade of student i, and let $x_i$ be the number of absences of student $i$  
+Then the  linear regression model is:  
+$y_i$ = $\beta_0$ + $\beta_1$$x_i$ + $\varepsilon_i$  
+where:  
+- $y_i$ is the final grade for student i (On a 0-20 grade scale)  
+- $x_i$ is the number of absences for student i  
+- $\beta_0$ represents the expected final grade for a student with zero absences  
+- $\beta_1$ represents the change in expected final grade for each additional   
+- $\varepsilon_i$ are independent error terms
+
+### Hypothesis  
+With these models, we will then conduct hypothesis testing with  
+$H_0$: There are no relationship between absences and final grades of high school students ($\beta_1 = 0$)  
+$H_a$: There is a relationship between absences and final grades of high school students ($\beta_1$ $\ne 0$)  
+using a t-test for regression slope.  
+
+### Interpretation
+```{r echo = FALSE}
+model_sum = summary(model)
+# Remove '#' from below to view model summary (p-value, slope, etc)
+# model_sum
+```
+The slope is positive, but small (0.06414), indicating only a slight increase in expected final grade scores with additional absences. The p-value (0.119) exceeds the significance level (alpha = 0.05) at a confidence level of 95%, so we fail to reject the null hypothesis. 
+This means that although the regression line slopes upwards, the evidence is not strong enough to conclude the reliability attendance affecting grade performance. The residual plot shows non-constant variance, weakening the reliability of the hypothesis test. 
+
+## Discussion
+
+### Further Interpretation
+The p-value shows that there is not enough evidence to claim a relationship between absences and final grades. Although the regression line slopes upwards slightly, it is not statistically significant. The small upward slope likely indicates noise in the data rather than a true trend.
+Because grades differ so much at every absence level and the model explains very little of this variation, it’s likely that many other academic, social, and behavioral factors play a stronger role in student performance.
+
+### Short-comings and Future Work
+
+The lack of constant variance indicates that our test results (p-value and t-test) may be less reliable and possibly misleading. This means that a simple linear regression model may not have been the best way to test the relationship between absences and final grades. Because absences alone cannot effectively predict a final grade performance, other academic, social, and personal factors likely play a much greater role. 
+
+Students with strong home support may maintain higher grades despite higher levels of absences, while students without the same support may experience grade declines regardless of attendance frequency. Differences in study habits and motivation levels also serve as confounding variables that the model could not account for. 
+
+Teacher related factors such as  different grading standards, teaching style, and student teacher rapport introduced additional variability that may affect grades in ways unrelated to absences. Additionally, external student responsibilities including employment, athletics, and family obligations may both cause absences and independently impact academic performance. 
+
+For future research into our question or similar question, categorizing absences into low, average, and high and then comparing final grades between groups could give us stronger insight. Including other variables, which would present as a multiple regression model may also provide a clearer picture by accounting for more sources of variation. 
+
+### Conclusion
+Many teachers, parents, and students believe that more student absences is a reason for worse final grade scores. By observing data from 395 high school students throughout the 2005 - 2006 school year and creating a simple linear regression and performing a hypothesis test, no statistically significant relationship was found between the two variables. For all students, the claim is not entirely false, but the analysis performed suggests that other factors have a deep influence on student performance as well. As suggested above, future analysis could possibly give statistical evidence of a relationship between student attendance and final grade performance. 
+
+## References
+Cortez, P. (2008). Student Performance [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5TG7T. 
